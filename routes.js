@@ -1,7 +1,17 @@
 var async = require('async');
+var path = require('path');
+var fs = require('fs');
 
 var dropbox = require('./lib/dropbox');
 var database = require('./lib/database');
+var image = require('./lib/image');
+
+const imageFormats = ['jpg', 'JPG', 'jpeg', 'JPEG', 'png', 'PNG'];
+const imageSizes = [
+  { longEdge: '200', suffix: 'small'},
+  { longEdge: '640', suffix: 'medium'},
+  { longEdge: '2000', suffix: 'large'}
+];
 
 module.exports = function(app){
 
@@ -38,7 +48,7 @@ function webhook(req, res) {
 }
 
 function processUser(user) {
-  console.log('User:', user);
+  // console.log('User:', user);
   database.getTokenAndCursor(user, function(token, cursor) {
     var has_more = true;
     var entries = [];
@@ -65,20 +75,43 @@ function processUser(user) {
         }
       },
       function(err) {
-        processEntries(entries);
+        processEntries(token, entries);
       }
     );
   });
 }
 
-function processEntries(entries) {
+function processEntries(token, entries) {
   entries.forEach(function(entry) {
+    console.log(entry);
     if (entry['.tag'] === 'file') {
-      console.log(entry.path_lower + ' added.');
+      console.log(entry.path_lower + ' added or modified.');
+
+      var filename = entry.path_lower.split('/').reverse()[0];
+      var extension = filename.split('.').reverse()[0];
+      console.log(filename, extension);
+
+      if (extension === 'md') {
+        var out = fs.createWriteStream(path.join(process.env.ARTICLE_FOLDER, filename));
+        dropbox.downloadFile(token, entry.path_lower).pipe(out);
+      }
+      // check for MIME-type instead
+      else if (imageFormats.indexOf(extension) > -1) {
+        var imageStream = dropbox.downloadFile(token, entry.path_lower);
+        imageSizes.forEach(function(size) {
+          var name = filename.replace(/(\.[^\.]*)?$/, '.' + size.suffix + '$1')
+          var out = fs.createWriteStream(path.join(process.env.IMAGE_FOLDER, name));
+          image.resize(imageStream, size.longEdge).pipe(out);
+        });
+      }
+      // don't process gifs
+      else if (extension === 'gif') {
+        var out = fs.createWriteStream(path.join(process.env.IMAGE_FOLDER, filename));
+        dropbox.downloadFile(token, entry.path_lower).pipe(out);
+      }
     }
     else if (entry['.tag'] === 'deleted') {
       console.log(entry.path_lower + ' deleted.');
     }
   });
 }
-

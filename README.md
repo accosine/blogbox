@@ -11,3 +11,5 @@ Environment variables or .env file
 - SSL_REDIRECT
 - HTTP_PORT
 - HTTPS_PORT
+- IMAGE_FOLDER
+- ARTICLE_FOLDER
