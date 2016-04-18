@@ -29,8 +29,9 @@ if (process.env.SSL_REDIRECT !== 'true') {
   });
 }
 
+app.set('view engine', 'hbs');
+app.set('views', process.cwd() + '/www');
 app.use(bodyParser.json({verify:function(req,res,buf){req.rawBody=buf}})) // eslint-disable-line
-
 routes(app);
 
 createServer(settings, app);
