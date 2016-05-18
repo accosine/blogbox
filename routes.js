@@ -14,8 +14,12 @@ const handleMarkdown = (token, entry, filename) => {
 };
 
 const handleGif = (token, entry, filename) => {
+  // download gif as is
   const out = fs.createWriteStream(path.join(process.env.IMAGE_FOLDER, filename));
   dropbox.downloadFile(token, entry.path_lower).pipe(out);
+
+  // extract first frame as placeholder
+  image.gifPlaceholder(token, entry, filename);
 };
 
 const handleImage = (token, entry, filename) => {
