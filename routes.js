@@ -1,12 +1,19 @@
 'use strict';
 
 const async = require('async');
+const auth = require('http-auth');
 const path = require('path');
 const fs = require('fs');
 
 const dropbox = require('./lib/dropbox');
 const database = require('./lib/database');
 const image = require('./lib/image');
+
+const basicAuth = auth.basic({ realm: process.env.REALM },
+  (user, pw, callback) => {
+    callback(user === process.env.USERNAME && pw === process.env.PASSWORD)
+  }
+);
 
 const handleMarkdown = (token, entry, filename) => {
   const out = fs.createWriteStream(path.join(process.env.ARTICLE_FOLDER, filename));
@@ -90,7 +97,7 @@ const processUser = (user) => {
 };
 
 module.exports = (app) => {
-  app.get('/', (req, res) => {
+  app.get('/', auth.connect(basicAuth), (req, res) => {
     res.render('signup', {
       appId: process.env.APP_ID,
       domain: process.env.DOMAIN,
@@ -98,7 +105,7 @@ module.exports = (app) => {
     });
   });
 
-  app.get('/redirect', (req, res) => {
+  app.get('/redirect', auth.connect(basicAuth), (req, res) => {
     // get token for user and save in redis
     dropbox.requestToken(req.query.code, (errGet, uid, token) => {
       if (errGet) throw errGet;
